@@ -18,11 +18,6 @@ def get_vgg16_imagenet_resources() -> Tuple[nn.Module, Callable[[Image.Image], T
 
     preprocess = weights.transforms()
 
-    # Set up input:
-    all_imgs = [preprocess(Image.open(img_pth)).unsqueeze(0) for img_pth in imgs_paths]
-    all_imgs = torch.concat(all_imgs)
-    all_imgs = all_imgs.cuda()
-
     vgg16_layers = {'input': 0,#'input_1',
                     'Conv1': 'maxpool2d_1',#_5',
                     'Conv2': 'maxpool2d_2',#_10',
