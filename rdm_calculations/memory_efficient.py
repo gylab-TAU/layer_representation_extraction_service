@@ -86,7 +86,7 @@ class MemoryEfficientRDMCalculator(RDMCalculator):
 
                 for name in layers_names:
                     # TODO: make metric configurable
-                    curr_rdm_row[name].append(F.pairwise_cosine_similarity(layers_a[name], layers_b[name]).cpu().numpy())
+                    curr_rdm_row.append(F.pairwise_cosine_similarity(layers_a[name], layers_b[name]).cpu().numpy())
             
             for name in layers_names:
                 rdm_rows[name].append(np.concat(curr_rdm_row[name], axis=1))
