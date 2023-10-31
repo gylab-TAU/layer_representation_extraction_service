@@ -8,7 +8,7 @@ from torch import Tensor
 class RDMCalculator(object):
     """Base class for RDM calculators."""
 
-    def calc_rdm(model: nn.Module, preprocess: Callable[[Image.Image], Tensor], imgs_paths: List[str], layers_names: Dict[Any, str]) -> Dict[str, np.ndarray]:
+    def calc_rdm(self, model: nn.Module, preprocess: Callable[[Image.Image], Tensor], imgs_paths: List[str], layers_names: Dict[Any, str]) -> Dict[str, np.ndarray]:
         """
         Calculate RDMs for a given model and images.
 

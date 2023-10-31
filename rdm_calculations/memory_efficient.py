@@ -25,7 +25,7 @@ class MemoryEfficientRDMCalculator(RDMCalculator):
         self.batch_size = batch_size
     
     
-    def _extract_batch_representations(model: nn.Module, preprocess: Callable[[Image.Image], Tensor], imgs_paths: List[str], layers_names: Dict[str, Any]) -> Dict[str, Tensor]:
+    def _extract_batch_representations(self, model: nn.Module, preprocess: Callable[[Image.Image], Tensor], imgs_paths: List[str], layers_names: Dict[str, Any]) -> Dict[str, Tensor]:
         """
         Extract representations for a batch of images.
 
@@ -52,7 +52,7 @@ class MemoryEfficientRDMCalculator(RDMCalculator):
         return layers
 
 
-    def calc_rdm(model: nn.Module, preprocess: Callable[[Image.Image], Tensor], imgs_paths: List[str], layers_names: Dict[str, str]) -> Dict[str, np.ndarray]:
+    def calc_rdm(self, model: nn.Module, preprocess: Callable[[Image.Image], Tensor], imgs_paths: List[str], layers_names: Dict[str, str]) -> Dict[str, np.ndarray]:
         '''
         Calculate RDMs for a given model and images.
         To save memory, the calculation is done in batches of images, where each batch is calculated separately.
