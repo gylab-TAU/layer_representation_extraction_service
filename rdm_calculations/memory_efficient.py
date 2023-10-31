@@ -6,7 +6,7 @@ from typing import Callable, List, Dict, Any
 from PIL import Image
 import numpy as np
 from tqdm import tqdm
-from rdm_calculations.rdm_calculator import RDMCalculator
+from .rdm_calculator import RDMCalculator
 
 
 class MemoryEfficientRDMCalculator(RDMCalculator):
