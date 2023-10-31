@@ -75,10 +75,10 @@ class MemoryEfficientRDMCalculator(RDMCalculator):
             curr_rdm_row = []
 
             # Load the batch for the vertical axis of the RDM:
-            layers_a = extract_batch_representations(model, preprocess, imgs_paths[i : i+self.batch_size], layers_names)
+            layers_a = self._extract_batch_representations(model, preprocess, imgs_paths[i : i+self.batch_size], layers_names)
 
             for j in range(i+1, len(imgs_paths), self.batch_size):
-                layers_b = extract_batch_representations(model, preprocess, imgs_paths[j : j+self.batch_size], layers_names)
+                layers_b = self._extract_batch_representations(model, preprocess, imgs_paths[j : j+self.batch_size], layers_names)
 
                 for name in layers_names:
                     # TODO: make metric configurable
