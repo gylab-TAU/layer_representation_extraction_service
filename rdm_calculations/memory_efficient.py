@@ -2,13 +2,13 @@ from torch import nn, Tensor
 import torch
 import torchlens as tl
 import torchmetrics.functional as F
-from typing import Callable, List, Dict
+from typing import Callable, List, Dict, Any
 from PIL import Image
 import numpy as np
 from tqdm import tqdm
 
 
-def extract_batch_representations(model: nn.Module, preprocess: Callable[[Image.Image], Tensor], imgs_paths: List[str], layers_names: Dict[str, str]) -> Dict[str, Tensor]:
+def extract_batch_representations(model: nn.Module, preprocess: Callable[[Image.Image], Tensor], imgs_paths: List[str], layers_names: Dict[str, Any]) -> Dict[str, Tensor]:
     """
     Extract representations for a batch of images.
 
