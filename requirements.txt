@@ -1,0 +1,9 @@
+numpy==1.26.1
+open_clip_torch==2.23.0
+Pillow==10.1.0
+Pillow==10.1.0
+torch==2.1.0
+torchlens==0.1.12
+torchmetrics==1.2.0
+torchvision==0.16.0
+tqdm==4.66.1
