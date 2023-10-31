@@ -45,7 +45,7 @@ class MemoryEfficientRDMCalculator(RDMCalculator):
             model_history_a = tl.log_forward_pass(model, batch, layers_to_save=[l for l in layers_names.values()], vis_opt='none')
 
         # Get layers:
-        layers = {layer_name: model_history_a[layer_name].tensor_contents for layer_name in layers_names}
+        layers = {name: model_history_a[layers_names[name]].tensor_contents for name in layers_names}
         del model_history_a
         layers = {name: layers[name].reshape((layers[name].shape[0], -1)) for name in layers}
 
