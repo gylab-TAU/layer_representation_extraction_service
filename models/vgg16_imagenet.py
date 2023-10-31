@@ -27,6 +27,5 @@ def get_vgg16_imagenet_resources() -> Tuple[nn.Module, Callable[[Image.Image], T
                     'FC6': 'relu_14',#_35',
                     'FC7': 'relu_15',#_38',
     }
-    model.eval()
 
     return model, preprocess, vgg16_layers

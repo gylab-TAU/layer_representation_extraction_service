@@ -39,7 +39,13 @@ class MemoryEfficientRDMCalculator(RDMCalculator):
             A dictionary of flattened representations for each layer.
         """
         batch = [preprocess(Image.open(img_pth)).unsqueeze(0) for img_pth in imgs_paths]
-        batch = torch.concat(batch).cuda()
+        batch = torch.concat(batch)
+        if torch.cuda.is_available():
+            batch = batch.cuda()
+            model = model.cuda()
+        else:
+            model = model.cpu()
+        
 
         with torch.no_grad(), torch.cuda.amp.autocast():
             model_history_a = tl.log_forward_pass(model, batch, layers_to_save=[l for l in layers_names.values()], vis_opt='none')
@@ -67,8 +73,6 @@ class MemoryEfficientRDMCalculator(RDMCalculator):
             A dictionary of RDMs for each layer.
         '''
         # Set up input:
-        # TODO: Set maximum batch size
-
         rdm_rows = {}
 
         for i in tqdm(range(0, len(imgs_paths), self.batch_size)):
