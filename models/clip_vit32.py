@@ -15,7 +15,7 @@ def get_clip_vit32_resources() -> Tuple[nn.Module, Callable[[Image.Image], Tenso
     model.eval()
     
     vit_layers = {'Input': 'input_1'} # Input images
-    vit_layers = vit_layers | {f'visual.transformer.resblocks.{i}': f'visual.transformer.resblocks.{i}' for i in range(12)} # All resblocks for CLIP ViT-B/32
+    vit_layers = vit_layers | {f'transformer.resblocks.{i}': f'transformer.resblocks.{i}' for i in range(12)} # All resblocks for CLIP ViT-B/32
     vit_layers = vit_layers | {'Output': 'matmul_1_426'} # Output embeddings
 
     return model.visual, preprocess, vit_layers
