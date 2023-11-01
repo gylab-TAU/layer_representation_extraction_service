@@ -2,7 +2,6 @@ from torch import nn, Tensor
 import numpy as np
 import torch
 import torchlens as tl
-import torchmetrics.functional as F
 from typing import Callable, List, Dict, Any
 from PIL import Image
 import numpy as np
@@ -19,12 +18,13 @@ class MemoryEfficientRDMCalculator(RDMCalculator):
     Memory complexity: O(batch_size * number_of_layers * number_of_images)
     Time complexity: O(number_of_layers * number_of_images^2 / batch_size)
     """
-    def __init__(self, batch_size: int = 1):
+    def __init__(self, pairwise_similarity_metric: Callable[[Tensor, Tensor], Tensor], batch_size: int = 1):
         """
         Args:
             batch_size: the maximum number of images to load at once.
         """
         self.batch_size = batch_size
+        self.pairwise_similarity_metric = pairwise_similarity_metric
     
     
     def _extract_batch_representations(self, model: nn.Module, preprocess: Callable[[Image.Image], Tensor], imgs_paths: List[str], layers_names: Dict[str, Any]) -> Dict[str, Tensor]:
@@ -122,8 +122,7 @@ class MemoryEfficientRDMCalculator(RDMCalculator):
             layers_b = self._extract_batch_representations(model, preprocess, imgs_paths[j : j+self.batch_size], layers_names)
 
             for name in layers_names:
-                # TODO: make metric configurable
-                distances = F.pairwise_cosine_similarity(layers_a[name], layers_b[name]).cpu()
+                distances = self.pairwise_similarity_metric(layers_a[name], layers_b[name]).cpu()
                 
                 # Set the symmetrically opposite blocks (RDMs are symmetric):
                 block_matrices[name][block_row_idx][block_col_idx] = distances
