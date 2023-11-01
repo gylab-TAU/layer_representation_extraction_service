@@ -8,6 +8,7 @@ from PIL import Image
 import numpy as np
 from tqdm import tqdm
 from .rdm_calculator import RDMCalculator
+import itertools
 
 
 class MemoryEfficientRDMCalculator(RDMCalculator):
@@ -74,34 +75,58 @@ class MemoryEfficientRDMCalculator(RDMCalculator):
         Returns:
             A dictionary of RDMs for each layer.
         '''
+        
+
+        # Print the estimated complexity:
+        n_batches = int(np.ceil(len(imgs_paths) / self.batch_size))
+
         # Set up input:
-        rdm_rows = {}
+        block_matrices = {
+            name: [
+                [
+                    None for block_col in range(n_batches) # A block for each batch
+                ] for block_row in range(n_batches) # A block row for each batch
+            ] for name in layers_names # A block matrix for each layer
+        }
 
-        n_batches = np.ceil(len(imgs_paths) / self.batch_size)
         print(f'n_batches = {len(imgs_paths)} / {self.batch_size} = {n_batches}')
-        print(f'n_iters = {n_batches} ^ 2 = {n_batches**2}')
+        print(f'n_iters = {n_batches} + {n_batches} * ({n_batches} - 1) / 2 = {n_batches + n_batches*(n_batches-1)/2}')
 
-        # TODO: set single for loop with progress bar
-        for i in tqdm(range(0, len(imgs_paths), self.batch_size)):
-            curr_rdm_row = {name: [] for name in layers_names}
 
-            # Load the batch for the vertical axis of the RDM:
-            layers_a = self._extract_batch_representations(model, preprocess, imgs_paths[i : i+self.batch_size], layers_names)
+        # Set up the pairs of batches:
+        batches_start_indices = itertools.combinations_with_replacement(range(0, len(imgs_paths), self.batch_size), 2)
+        batches_start_indices = list(batches_start_indices)
 
-            for j in tqdm(range(0, len(imgs_paths), self.batch_size)):
-                layers_b = self._extract_batch_representations(model, preprocess, imgs_paths[j : j+self.batch_size], layers_names)
-
-                for name in layers_names:
-                    # TODO: make metric configurable
-                    curr_rdm_row[name].append(F.pairwise_cosine_similarity(layers_a[name], layers_b[name]).cpu().numpy())
+        prior_i = None
+        pbar = tqdm(batches_start_indices)
+        for i, j in pbar:
+            # Get the block indices:
+            block_row_idx = i // self.batch_size
+            block_col_idx = j // self.batch_size
+            pbar.set_description(f'Calculating block [{block_row_idx}, {block_col_idx}]')
             
+            # Load the batch for the vertical axis of the RDM:
+            if prior_i != i:
+                layers_a = self._extract_batch_representations(model, preprocess, imgs_paths[i : i+self.batch_size], layers_names)
+                prior_i = i
+            
+            # Load the batch for the horizontal axis of the RDM:
+            layers_b = self._extract_batch_representations(model, preprocess, imgs_paths[j : j+self.batch_size], layers_names)
+
             for name in layers_names:
-                rdm_rows[name].append(np.concat(curr_rdm_row[name], axis=1))
+                # TODO: make metric configurable
+                distances = F.pairwise_cosine_similarity(layers_a[name], layers_b[name]).cpu()
+                
+                # Set the symmetrically opposite blocks (RDMs are symmetric):
+                block_matrices[name][block_row_idx][block_col_idx] = distances
+                block_matrices[name][block_col_idx][block_row_idx] = distances.T
 
         model.cpu()
         del model
-
+        
+        # join all rows:
+        rows = {name: [torch.concat(block_matrices[name][row_idx], axis=1) for row_idx in range(n_batches)] for name in block_matrices}
         # Join all layers
-        layers = {name: torch.concat(rdm_rows[name], axis=0) for name in layers}
+        layers = {name: torch.concat(rows[name], axis=0) for name in rows}
 
         return layers
