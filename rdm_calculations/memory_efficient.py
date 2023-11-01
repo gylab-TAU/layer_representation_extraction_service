@@ -56,9 +56,17 @@ class MemoryEfficientRDMCalculator(RDMCalculator):
         # Get layers:
         layers = {name: model_history_a[layers_names[name]].tensor_contents for name in layers_names}
         del model_history_a
-        layers = {name: layers[name].reshape((layers[name].shape[0], -1)) for name in layers}
 
-        return layers
+        # Flatten layers:
+        flat_layers = {}
+        for name in layers:
+            # In case of transformers, we set the first dimension to batch size, and the second to the tokens.
+            if name.startswith('transformer'):
+                # reorder dimensions to [batch, tokens, features]
+                layers[name] = layers[name].permute(1, 0, 2)
+            flat_layers[name] = layers[name].reshape((layers[name].shape[0], -1))
+
+        return flat_layers
 
 
     def calc_rdm(self, model: nn.Module, preprocess: Callable[[Image.Image], Tensor], imgs_paths: List[str], layers_names: Dict[str, str]) -> Dict[str, np.ndarray]:
