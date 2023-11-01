@@ -18,14 +18,15 @@ def get_vgg16_imagenet_resources() -> Tuple[nn.Module, Callable[[Image.Image], T
 
     preprocess = weights.transforms()
 
-    vgg16_layers = {'input': 0,#'input_1',
-                    'Conv1': 'maxpool2d_1',#_5',
-                    'Conv2': 'maxpool2d_2',#_10',
-                    'Conv3': 'maxpool2d_3',#_17',
-                    'Conv4': 'maxpool2d_4',#_24',
-                    'Conv5': 'maxpool2d_5',#_31',
-                    'FC6': 'relu_14',#_35',
-                    'FC7': 'relu_15',#_38',
+    vgg16_layers = {'Input': 0, #'input_1',
+                    'Conv1': 'maxpool2d_1', #_5',
+                    'Conv2': 'maxpool2d_2', #_10',
+                    'Conv3': 'maxpool2d_3', #_17',
+                    'Conv4': 'maxpool2d_4', #_24',
+                    'Conv5': 'maxpool2d_5', #_31',
+                    'FC6': 'relu_14', #_35',
+                    'FC7': 'relu_15', #_38',
+                    'FC8': 'linear_3' #_40'
     }
 
     return model, preprocess, vgg16_layers

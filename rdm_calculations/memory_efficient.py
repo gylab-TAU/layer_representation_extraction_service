@@ -1,4 +1,5 @@
 from torch import nn, Tensor
+import numpy as np
 import torch
 import torchlens as tl
 import torchmetrics.functional as F
@@ -47,8 +48,9 @@ class MemoryEfficientRDMCalculator(RDMCalculator):
             model = model.cpu()
         
 
-        with torch.no_grad(), torch.cuda.amp.autocast():
-            model_history_a = tl.log_forward_pass(model, batch, layers_to_save=[l for l in layers_names.values()], vis_opt='none')
+        with torch.no_grad():#, torch.cuda.amp.autocast():
+            layers_string_title = [l for l in layers_names.values()]
+            model_history_a = tl.log_forward_pass(model, batch, layers_to_save=layers_string_title, vis_opt='none')
 
         # Get layers:
         layers = {name: model_history_a[layers_names[name]].tensor_contents for name in layers_names}
@@ -75,18 +77,23 @@ class MemoryEfficientRDMCalculator(RDMCalculator):
         # Set up input:
         rdm_rows = {}
 
+        n_batches = np.ceil(len(imgs_paths) / self.batch_size)
+        print(f'n_batches = {len(imgs_paths)} / {self.batch_size} = {n_batches}')
+        print(f'n_iters = {n_batches} ^ 2 = {n_batches**2}')
+
+        # TODO: set single for loop with progress bar
         for i in tqdm(range(0, len(imgs_paths), self.batch_size)):
-            curr_rdm_row = []
+            curr_rdm_row = {name: [] for name in layers_names}
 
             # Load the batch for the vertical axis of the RDM:
             layers_a = self._extract_batch_representations(model, preprocess, imgs_paths[i : i+self.batch_size], layers_names)
 
-            for j in range(i+1, len(imgs_paths), self.batch_size):
+            for j in tqdm(range(0, len(imgs_paths), self.batch_size)):
                 layers_b = self._extract_batch_representations(model, preprocess, imgs_paths[j : j+self.batch_size], layers_names)
 
                 for name in layers_names:
                     # TODO: make metric configurable
-                    curr_rdm_row.append(F.pairwise_cosine_similarity(layers_a[name], layers_b[name]).cpu().numpy())
+                    curr_rdm_row[name].append(F.pairwise_cosine_similarity(layers_a[name], layers_b[name]).cpu().numpy())
             
             for name in layers_names:
                 rdm_rows[name].append(np.concat(curr_rdm_row[name], axis=1))
