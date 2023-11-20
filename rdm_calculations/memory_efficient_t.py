@@ -23,6 +23,7 @@ class MemoryEfficientTextRDMCalculator:
         Args:
             batch_size: the maximum number of images to load at once.
         """
+        assert batch_size > 0, 'batch_size must be positive.'
         self.batch_size = batch_size
         self.pairwise_similarity_metric = pairwise_similarity_metric
         self.specific_layers = True
