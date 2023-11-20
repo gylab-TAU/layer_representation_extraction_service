@@ -1,1 +1,2 @@
 from .memory_efficient import MemoryEfficientRDMCalculator
+from .memory_efficient_t import MemoryEfficientTextRDMCalculator

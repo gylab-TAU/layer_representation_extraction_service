@@ -10,7 +10,7 @@ from .rdm_calculator import RDMCalculator
 import itertools
 
 
-class MemoryEfficientRDMCalculator(RDMCalculator):
+class MemoryEfficientTextRDMCalculator:
     """
     A memory efficient RDM calculator
     Loads the images in batches and calculates the RDMs for each batch separately.
@@ -25,9 +25,10 @@ class MemoryEfficientRDMCalculator(RDMCalculator):
         """
         self.batch_size = batch_size
         self.pairwise_similarity_metric = pairwise_similarity_metric
+        self.specific_layers = True
     
     
-    def _extract_batch_representations(self, model: nn.Module, preprocess: Callable[[Image.Image], Tensor], imgs_paths: List[str], layers_names: Dict[str, Any]) -> Dict[str, Tensor]:
+    def _extract_batch_representations(self, model: nn.Module, preprocess: Callable[[List[str]], Tensor], texts: List[str], layers_names: Dict[str, Any]) -> Dict[str, Tensor]:
         """
         Extract representations for a batch of images.
 
@@ -40,8 +41,7 @@ class MemoryEfficientRDMCalculator(RDMCalculator):
         Returns:
             A dictionary of flattened representations for each layer.
         """
-        batch = [preprocess(Image.open(img_pth)).unsqueeze(0) for img_pth in imgs_paths]
-        batch = torch.concat(batch)
+        batch = preprocess(texts)
         if torch.cuda.is_available():
             batch = batch.cuda()
             model = model.cuda()
@@ -51,19 +51,31 @@ class MemoryEfficientRDMCalculator(RDMCalculator):
 
         with torch.no_grad():#, torch.cuda.amp.autocast():
             layers_string_title = [l for l in layers_names.values()]
-            model_history_a = tl.log_forward_pass(model, batch, layers_to_save=layers_string_title, vis_opt='none')
+            if self.specific_layers:
+                try:
+                    model_history_a = tl.log_forward_pass(model, batch, layers_to_save=layers_string_title, vis_opt='none')
+                    
+                except ValueError as ex:
+                    print('Failed to calculate RDMs for specific layers. Falling back to all layers.')
+                    self.specific_layers = False
+                    model_history_a = tl.log_forward_pass(model, batch, layers_to_save='all', vis_opt='none')
+                    model_history_a = {name: model_history_a[name] for name in layers_string_title}
+            else:
+                model_history_a = tl.log_forward_pass(model, batch, layers_to_save='all', vis_opt='none')
+            
+            layers = {name: model_history_a[name] for name in layers_string_title}
+            del model_history_a
 
         # Get layers:
-        layers = {name: model_history_a[layers_names[name]].tensor_contents for name in layers_names}
-        del model_history_a
-
-        assert len(layers) == 0 or len(layers[layers_string_title[0]]) == len(batch), 'The number of layers and the number of images are not equal.'
+        layers = {name: layers[layers_names[name]].tensor_contents for name in layers_names}
+        
+        assert len(layers) == 0 or len(layers[next(iter(layers))]) == len(batch), 'The number of layers and the number of images are not equal.'
 
         # Flatten layers:
         flat_layers = {}
         for name in layers:
             # In case of transformers, we set the first dimension to batch size, and the second to the tokens.
-            if name.startswith('transformer'):
+            if 'transformer' in name:
                 # reorder dimensions to [batch, tokens, features]
                 layers[name] = layers[name].permute(1, 0, 2)
             flat_layers[name] = layers[name].reshape((layers[name].shape[0], -1))
@@ -71,7 +83,7 @@ class MemoryEfficientRDMCalculator(RDMCalculator):
         return flat_layers
 
 
-    def calc_rdm(self, model: nn.Module, preprocess: Callable[[Image.Image], Tensor], imgs_paths: List[str], layers_names: Dict[str, str]) -> Dict[str, np.ndarray]:
+    def calc_rdm(self, model: nn.Module, preprocess: Callable[[List[str]], Tensor], texts: List[str], layers_names: Dict[str, Any]) -> Dict[str, np.ndarray]:
         '''
         Calculate RDMs for a given model and images.
         To save memory, the calculation is done in batches of images, where each batch is calculated separately.
@@ -79,7 +91,7 @@ class MemoryEfficientRDMCalculator(RDMCalculator):
         Args:
             model: the model to calculate RDMs for.
             preprocess: a function that preprocesses an image to a tensor.
-            imgs_paths: a list of paths to images.
+            texts: list of strings to encode.
             layers_names: a list of layers names to calculate RDMs for.
         
         Returns:
@@ -88,7 +100,7 @@ class MemoryEfficientRDMCalculator(RDMCalculator):
         
 
         # Print the estimated complexity:
-        n_batches = int(np.ceil(len(imgs_paths) / self.batch_size))
+        n_batches = int(np.ceil(len(texts) / self.batch_size))
 
         # Set up input:
         block_matrices = {
@@ -99,12 +111,12 @@ class MemoryEfficientRDMCalculator(RDMCalculator):
             ] for name in layers_names # A block matrix for each layer
         }
 
-        print(f'n_batches = {len(imgs_paths)} / {self.batch_size} = {n_batches}')
+        print(f'n_batches = {len(texts)} / {self.batch_size} = {n_batches}')
         print(f'n_iters = {n_batches} + {n_batches} * ({n_batches} - 1) / 2 = {n_batches + n_batches*(n_batches-1)/2}')
 
 
         # Set up the pairs of batches:
-        batches_start_indices = itertools.combinations_with_replacement(range(0, len(imgs_paths), self.batch_size), 2)
+        batches_start_indices = itertools.combinations_with_replacement(range(0, len(texts), self.batch_size), 2)
         batches_start_indices = list(batches_start_indices)
 
         prior_i = None
@@ -117,7 +129,7 @@ class MemoryEfficientRDMCalculator(RDMCalculator):
             
             # Load the batch for the vertical axis of the RDM:
             if prior_i != i:
-                layers_a = self._extract_batch_representations(model, preprocess, imgs_paths[i : i+self.batch_size], layers_names)
+                layers_a = self._extract_batch_representations(model, preprocess, texts[i : i+self.batch_size], layers_names)
                 prior_i = i
             
             # Load the batch for the horizontal axis of the RDM:
