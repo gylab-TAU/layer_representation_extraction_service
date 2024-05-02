@@ -18,14 +18,15 @@ def get_params() -> Namespace:
 
 if __name__ == '__main__':
     args = get_params()
-    # ('google/vit-base-patch16-224', 'ViT-B16 - ImageNet'), ('google/vit-base-patch32-384', 'ViT-B32 - ImageNet'), ('google/vit-large-patch16-224', 'ViT-L16 - ImageNet'), 
+    in1k_archs = ('google/vit-base-patch16-224', 'ViT-B16 - ImageNet'), ('google/vit-base-patch32-384', 'ViT-B32 - ImageNet'), ('google/vit-large-patch16-224', 'ViT-L16 - ImageNet'), 
+    in21k_archs = [('google/vit-base-patch32-224-in21k', 'ViT-B32 - ImageNet21k'), ('google/vit-base-patch16-224-in21k', 'ViT-B16 - ImageNet21k'), ('google/vit-large-patch16-224-in21k', 'ViT-L16 - ImageNet21k'), ('google/vit-large-patch32-224-in21k', 'ViT-L32 - ImageNet21k'), ('google/vit-huge-patch14-224-in21k', 'ViT-H14 - ImageNet21k')]
     
-    for arch, dir in tqdm([('google/vit-huge-patch14-224-in21k', 'ViT-H14 - ImageNet21k')]):
+    for arch, dir in tqdm(in21k_archs, desc='Iterating over models...'):
         (args.output_dir / dir).mkdir(parents=True, exist_ok=True)
         layer_names = set()
         image_processor = AutoImageProcessor.from_pretrained(arch)
 
-        if arch == 'google/vit-huge-patch14-224-in21k':
+        if arch[:-len('-in21k')] == '-in21k':
             model = ViTModel.from_pretrained(arch)
             image_processor = ViTFeatureExtractor.from_pretrained(arch)
         else:
@@ -33,7 +34,7 @@ if __name__ == '__main__':
             image_processor = AutoImageProcessor.from_pretrained(arch)
         
         imgs_names = []
-        for img in tqdm(args.input_dir.glob('*.png')):
+        for img in tqdm(args.input_dir.glob('*.png'), desc='Extracting image representations...'):
             (args.output_dir / dir / img.stem).mkdir(parents=True, exist_ok=True)
             imgs_names.append(img.stem)
             img = Image.open(img)
@@ -45,13 +46,13 @@ if __name__ == '__main__':
                     layer_names.add(i)
                     torch.save(outputs.hidden_states[i].flatten(), args.output_dir / dir / imgs_names[-1] / f'{i}.pkl')
                 layer_names.add('Output')
-                if arch == 'google/vit-huge-patch14-224-in21k':
+                if arch[:-len('-in21k')] == '-in21k':
                     torch.save(outputs.last_hidden_state.flatten(), args.output_dir / dir / imgs_names[-1] / f'Output.pkl')
                     layer_names.add('OutputCls')
-                    torch.save(outputs.last_hidden_state[:, 0, :].flatten(), args.output_dir / dir / imgs_names[-1] / f'OutputCls.pkl')
+                    torch.save(outputs.last_hidden_state[:, 0, :].flatten(), args.output_dir / dir / imgs_names[-1] / f'Output-cls.pkl')
 
                 else:
-                    torch.save(outputs.hidden_state[-1][:, 0, :].flatten(), args.output_dir / dir / imgs_names[-1] / f'Output.pkl')
+                    torch.save(outputs.hidden_states[-1][:, 0, :].flatten(), args.output_dir / dir / imgs_names[-1] / f'Output.pkl')
                     layer_names.add('Logits')
                     torch.save(outputs.logits.squeeze(0), args.output_dir / dir / imgs_names[-1] / f'Logits.pkl')
         
@@ -65,7 +66,7 @@ if __name__ == '__main__':
         del image_processor
         del model
         
-        for i in tqdm(layer_names):
+        for i in tqdm(layer_names, desc='Computing RDMs...'):
             reps = []
             for img in imgs_names:
                 reps.append(torch.load(args.output_dir / dir / img / f'{i}.pkl'))
